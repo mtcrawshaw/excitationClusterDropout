@@ -22,6 +22,9 @@ class Cutout(object):
 		return img
 
 
+def rootDir():
+	return os.path.dirname(os.path.dirname(__file__))
+
 def dataTransforms(dataset, cutout):
 	mean, std = distribution(dataset)
 
@@ -34,7 +37,7 @@ def dataTransforms(dataset, cutout):
 	if cutout is not None:
 		trainTransform.transforms.append(Cutout(cutout))
 
-	valid_transform = transforms.Compose([
+	validTransform = transforms.Compose([
 		transforms.ToTensor(),
 		transforms.Normalize(mean, std)])
 
@@ -49,3 +52,4 @@ def distribution(dataset):
 		std = [0.24703233, 0.24348505, 0.26158768]
 
 	return mean, std
+

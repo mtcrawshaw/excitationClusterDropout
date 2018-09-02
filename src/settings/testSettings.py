@@ -4,6 +4,7 @@ trainPortion = .8
 learningRate = 0.025
 momentum = 0.9
 learningRateMin = 1e-9
-batch_size = 32
+batchSize = 32
+cutout = None
 
 data = '../data'
