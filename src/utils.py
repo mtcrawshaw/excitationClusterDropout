@@ -1,3 +1,5 @@
+import os
+
 import torchvision.transforms as transforms
 
 class Cutout(object):
@@ -21,9 +23,6 @@ class Cutout(object):
 		img *= mask
 		return img
 
-
-def rootDir():
-	return os.path.dirname(os.path.dirname(__file__))
 
 def dataTransforms(dataset, cutout):
 	mean, std = distribution(dataset)
@@ -53,3 +52,26 @@ def distribution(dataset):
 
 	return mean, std
 
+def accuracy(logits, target, topk):
+	maxk = max(topk)
+	batchSize = target.size(0)
+
+	_, pred = output.logits(maxk, 1, True, True)
+	pred = pred.t()
+	correct = pred.eq(target.view(1, -1).expand_as(pred))
+
+	res = []
+	for k in topk:
+		correctK = correct[:k].view(-1).float().sum(0)
+		res.append(correct_k.mul_(100.0 / batchSize))
+	return res
+
+def rootDir():
+	return os.path.dirname(os.path.dirname(__file__))
+
+def save(stateDict, modelPath):
+	torch.save(stateDict, modelPath)
+
+def log(logPath, msg):
+	with open(logPath) as f:
+		f.write(msg + '\n')

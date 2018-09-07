@@ -2,6 +2,7 @@ import sys
 import os
 import argparse
 import importlib
+import time
 
 import torch
 import torch.nn as nn
@@ -16,6 +17,7 @@ parser.add_argument('dataset', help='Name of dataset to train/test on. List of o
 parser.add_argument('network', help='Name of architecture to train. List of options in models/architectures.txt')
 parser.add_argument('settingsFile', help='Path of settings file')
 parser.add_argument('name', help='Name of experiment')
+parser.add_argument('--reportFreq', type=int, default=50, help='Frequency of reporting loss and accuracy during training and validation.')
 args = parser.parse_args()
 
 rootDir = utils.rootDir()
@@ -26,9 +28,10 @@ expDir = os.path.join(rootDir, 'experiments', expName)
 if os.path.isdir(expDir):
 	print('Experiment directory already taken')
 	sys.exit(1)
-os.path.makedirs(expDir)
+os.makedirs(expDir)
 modelPath = os.path.join(expDir, args.name)
 logPath = os.path.join(expDir, 'results.log')
+os.mknod(logPath, mode=0o666)
 
 def main():
 	# Check that GPU is available
@@ -42,9 +45,9 @@ def main():
 	settings = importlib.import_module(os.path.basename(settingsName))
 
 	# Defining loss and model
-	loss = nn.CrossEntropyLoss()
-	loss = loss.cuda()
-	model = architectures.getNetwork(args.network, loss)
+	criterion = nn.CrossEntropyLoss()
+	criterion = criterion.cuda()
+	model = architectures.getNetwork(args.network, criterion)
 	model = model.cuda()
 
 	# Defining optimizer and scheduler
@@ -80,10 +83,65 @@ def main():
 
 		trainingAccuracy = train(trainQueue, validQueue, model, criterion, optimizer, l)
 		validAccuracy = infer(validQueue, model, criterion)
-		utils.log(logPath, 'train acc ' + str(trainingAccuracy))
-		utils.log(logPath, 'valid acc ' + str(validAccuracy))
+		utils.log(logPath, 'train acc ' + str(trainingAccuracy[0]) + ' ' + str(trainingAccuracy[1]))
+		utils.log(logPath, 'valid acc ' + str(validAccuracy[0]) + ' ' + str(validAccuracy[1]))
 
 		torch.save(model.state_dict(), modelPath)
+
+def train(trainQueue, validQueue, model, criterion, optimizer, lr):
+	avgLoss = 0.0
+	avgTop1 = 0.0
+	avgTop5 = 0.0
+
+	for step, (input, target) in enumerate(trainQueue):
+		model.train()
+		n = input.size(0)
+		
+		input = Variable(input, requires_grad=False).cuda()
+		target = Variable(target, requires_grad=False).cuda(async=True)
+
+		optimizer.zero_grad()
+		logits = model(input)
+		loss = criterion(logits, target)
+
+		loss.backward()
+		if settings.gradClip is not None:
+			nn.utils.clilp_grad_norm(model.parameters(), settings.gradClip)
+		optimizer.step()
+
+		prec1, prec5 = utils.accuracy(logits, target, (1, 5))
+		avgLoss = (avgLoss * (step - 1) + loss.data[0] / n) / step
+		avgTop1 = (avgTop1 * (step - 1) + prec1.data[0] / n) / step
+		avgTop5 = (avgTop5 * (step - 1) + prec5.data[0] / n) / step
+
+		if step % args.reportFreq == 0:
+			utils.log(logPath, 'train ' + str(step) + ' ' + str(avgLoss) + ' ' + str(avgTop1) + ' ' + str(avgTop5))
+
+	return avgTop1, avgTop5
+
+def infer(validQueue, model, criterion):
+	avgLoss = 0.0
+	avgTop1 = 0.0
+	avgTop5 = 0.0
+
+	for step, (input, target) in enumerate(validQueue):
+		n = input.size(0)
+
+		input = Variable(input, volatile=True).cuda()
+		target = Variable(target, volatile=True).cuda()
+
+		logits = model(input)
+		loss = criterion(logits, target)
+
+		prec1, prec5 = utils.accuracy(logits, target, (1, 5))
+		avgLoss = (avgLoss * (step - 1) + loss.data[0] / n) / step
+		avgTop1 = (avgTop1 * (step - 1) + prec1.data[0] / n) / step
+		avgTop5 = (avgTop5 * (step - 1) + prec5.data[0] / n) / step
+
+		if step % args.reportFreq == 0:
+			utils.log(logPath, 'valid ' + str(step) + ' ' + str(avgLoss) + ' ' + str(avgTop1) + ' ' + str(avgTop5))
+
+	return avgTop1, avgTop5
 
 if __name__ == "__main__":
 	main()

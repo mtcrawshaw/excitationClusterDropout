@@ -6,5 +6,6 @@ momentum = 0.9
 learningRateMin = 1e-9
 batchSize = 32
 cutout = None
+gradClip = None
 
 data = '../data'
