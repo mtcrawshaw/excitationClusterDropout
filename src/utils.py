@@ -73,5 +73,6 @@ def save(stateDict, modelPath):
 	torch.save(stateDict, modelPath)
 
 def log(logPath, msg):
-	with open(logPath) as f:
-		f.write(msg + '\n')
+	f = open(logPath, 'a')
+	f.write(msg + '\n')
+	f.close()
