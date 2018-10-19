@@ -14,54 +14,45 @@ class cnn2Network(nn.Module):
         self.pool1 = nn.MaxPool2d(2)
         self.conv2 = nn.Conv2d(32, 48, (5, 5))
         self.pool2 = nn.MaxPool2d(2)
-        self.conv3 = nn.Conv2d(48, 256, (5, 5))
-        self.pool3 = nn.MaxPool2d(3)
-        self.fc1 = nn.Linear(7 * 7 * 48, 2048)
-        self.fc2 = nn.Linear(2048, 1048)
-        self.fc3 = nn.Linear(1048, 10)
+        self.conv3 = nn.Conv2d(48, 256, (4, 4))
+        self.pool3 = nn.MaxPool2d(2)
+        self.fc1 = nn.Linear(256, 2048)
+        self.fc2 = nn.Linear(2048, 1024)
+        self.fc3 = nn.Linear(1024, 10)
 
     def forward(self, input):
-        print(input.shape)
         # First convolutional layer
         x = self.conv1(input)
         x = F.relu(x)
-        print(x.shape)
 
         # First max pooling layer
         x = self.pool1(x)
-        print(x.shape)
 
         # Second convolutional layer
         x = self.conv2(x)
         x = F.relu(x)
-        print(x.shape)
 
         # Second max pooling layer
         x = self.pool2(x)
-        print(x.shape)
 
         # Third convolutional layer
         x = self.conv3(x)
         x = F.relu(x)
-        print(x.shape)
 
         # Third max pooling layer
         x = self.pool3(x)
-        print(x.shape)
 
         # First fully connected layer
+        x = x.view(-1, 256)
         x = self.fc1(x)
         x = F.relu(x)
-        print(x.shape)
 
         # Second fully connected layer
         x = self.fc2(x)
         x = F.relu(x)
-        print(x.shape)
 
         # Third fully connected layer
         x = self.fc3(x)
-        print(x.shape)
 
         return x
 

@@ -52,18 +52,18 @@ def distribution(dataset):
 
 	return mean, std
 
-def accuracy(logits, target, topk):
+def accuracy(output, target, topk):
 	maxk = max(topk)
 	batchSize = target.size(0)
 
-	_, pred = output.logits(maxk, 1, True, True)
+	_, pred = output.topk(maxk, 1, True, True)
 	pred = pred.t()
 	correct = pred.eq(target.view(1, -1).expand_as(pred))
 
 	res = []
 	for k in topk:
 		correctK = correct[:k].view(-1).float().sum(0)
-		res.append(correct_k.mul_(100.0 / batchSize))
+		res.append(correctK.mul_(100.0 / batchSize))
 	return res
 
 def rootDir():

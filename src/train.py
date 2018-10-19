@@ -18,7 +18,6 @@ parser.add_argument('dataset', help='Name of dataset to train/test on. List of o
 parser.add_argument('network', help='Name of architecture to train. List of options in models/architectures.txt')
 parser.add_argument('settingsFile', help='Path of settings file')
 parser.add_argument('name', help='Name of experiment')
-parser.add_argument('--reportFreq', type=int, default=50, help='Frequency of reporting loss and accuracy during training and validation.')
 args = parser.parse_args()
 
 rootDir = utils.rootDir()
@@ -80,16 +79,17 @@ def main():
     for epoch in range(settings.epochs):
         scheduler.step()
         lr = scheduler.get_lr()[0]
-        utils.log(logPath, 'epoch ' + str(epoch) + ' lr ' + str(lr))
-
-        trainingAccuracy = train(trainQueue, validQueue, model, criterion, optimizer, lr)
-        # validAccuracy = infer(validQueue, model, criterion)
-        utils.log(logPath, 'train acc ' + str(trainingAccuracy[0]) + ' ' + str(trainingAccuracy[1]))
-        # utils.log(logPath, 'valid acc ' + str(validAccuracy[0]) + ' ' + str(validAccuracy[1]))
+        trainingAccuracy = train(trainQueue, validQueue, model, criterion, optimizer, lr, settings)
+        msg = 'epoch ' + str(epoch) + ' lr ' + str(lr)
+        msg += '\nloss: ' + str(trainingAccuracy[0]) 
+        msg += '\ntop 1 accuracy: ' + str(trainingAccuracy[1])
+        msg += '\ntop 5 accuracy: ' + str(trainingAccuracy[2]) + '\n'
+        utils.log(logPath, msg)
+        print(msg)
 
         torch.save(model.state_dict(), modelPath)
 
-def train(trainQueue, validQueue, model, criterion, optimizer, lr):
+def train(trainQueue, validQueue, model, criterion, optimizer, lr, settings):
     avgLoss = 0.0
     avgTop1 = 0.0
     avgTop5 = 0.0
@@ -111,14 +111,11 @@ def train(trainQueue, validQueue, model, criterion, optimizer, lr):
         optimizer.step()
 
         prec1, prec5 = utils.accuracy(logits, target, (1, 5))
-        avgLoss = (avgLoss * (step - 1) + loss.data[0] / n) / step
-        avgTop1 = (avgTop1 * (step - 1) + prec1.data[0] / n) / step
-        avgTop5 = (avgTop5 * (step - 1) + prec5.data[0] / n) / step
+        avgLoss = (avgLoss * step + loss.item() / n) / (step + 1)
+        avgTop1 = (avgTop1 * step + prec1.item() / n) / (step + 1)
+        avgTop5 = (avgTop5 * step + prec5.item() / n) / (step + 1)
 
-        if step % args.reportFreq == 0:
-            utils.log(logPath, 'train ' + str(step) + ' ' + str(avgLoss) + ' ' + str(avgTop1) + ' ' + str(avgTop5))
-
-    return avgTop1, avgTop5
+    return avgLoss, avgTop1, avgTop5
 
 def infer(validQueue, model, criterion):
     avgLoss = 0.0
@@ -135,12 +132,9 @@ def infer(validQueue, model, criterion):
         loss = criterion(logits, target)
 
         prec1, prec5 = utils.accuracy(logits, target, (1, 5))
-        avgLoss = (avgLoss * (step - 1) + loss.data[0] / n) / step
-        avgTop1 = (avgTop1 * (step - 1) + prec1.data[0] / n) / step
-        avgTop5 = (avgTop5 * (step - 1) + prec5.data[0] / n) / step
-
-        if step % args.reportFreq == 0:
-            utils.log(logPath, 'valid ' + str(step) + ' ' + str(avgLoss) + ' ' + str(avgTop1) + ' ' + str(avgTop5))
+        avgLoss = (avgLoss * step + loss.data[0] / n) / (step + 1)
+        avgTop1 = (avgTop1 * step + prec1.data[0] / n) / (step + 1)
+        avgTop5 = (avgTop5 * step + prec5.data[0] / n) / (step + 1)
 
     return avgTop1, avgTop5
 
