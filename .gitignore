@@ -1,3 +1,5 @@
 src/__pycache__/
-src/settings/__pycache__/
+src/settings/
 data/cifar-10-batches-py/
+notes.txt
+experiments/

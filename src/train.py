@@ -79,7 +79,7 @@ def main():
     for epoch in range(settings.epochs):
         scheduler.step()
         lr = scheduler.get_lr()[0]
-        trainingAccuracy = train(trainQueue, validQueue, model, criterion, optimizer, lr, settings)
+        trainingAccuracy = train(trainQueue, model, criterion, optimizer, lr, settings)
         msg = 'epoch ' + str(epoch) + ' lr ' + str(lr)
         msg += '\nloss: ' + str(trainingAccuracy[0]) 
         msg += '\ntop 1 accuracy: ' + str(trainingAccuracy[1])
@@ -89,7 +89,15 @@ def main():
 
         torch.save(model.state_dict(), modelPath)
 
-def train(trainQueue, validQueue, model, criterion, optimizer, lr, settings):
+    validationAccuracy = infer(validQueue, model, criterion)
+    msg = 'validation'
+    msg += '\nloss: ' + str(validationAccuracy[0]) 
+    msg += '\ntop 1 accuracy: ' + str(validationAccuracy[1])
+    msg += '\ntop 5 accuracy: ' + str(validationAccuracy[2]) + '\n'
+    utils.log(logPath, msg)
+    print(msg)
+
+def train(trainQueue, model, criterion, optimizer, lr, settings):
     avgLoss = 0.0
     avgTop1 = 0.0
     avgTop5 = 0.0
@@ -102,7 +110,7 @@ def train(trainQueue, validQueue, model, criterion, optimizer, lr, settings):
         target = Variable(target, requires_grad=False).cuda(async=True)
 
         optimizer.zero_grad()
-        logits = model(input)
+        logits = model(input, settings.dropout)
         loss = criterion(logits, target)
 
         loss.backward()
@@ -125,18 +133,18 @@ def infer(validQueue, model, criterion):
     for step, (input, target) in enumerate(validQueue):
         n = input.size(0)
 
-        input = Variable(input, volatile=True).cuda()
-        target = Variable(target, volatile=True).cuda()
+        input = Variable(input).cuda()
+        target = Variable(target).cuda()
 
         logits = model(input)
         loss = criterion(logits, target)
 
         prec1, prec5 = utils.accuracy(logits, target, (1, 5))
-        avgLoss = (avgLoss * step + loss.data[0] / n) / (step + 1)
-        avgTop1 = (avgTop1 * step + prec1.data[0] / n) / (step + 1)
-        avgTop5 = (avgTop5 * step + prec5.data[0] / n) / (step + 1)
+        avgLoss = (avgLoss * step + loss.item() / n) / (step + 1)
+        avgTop1 = (avgTop1 * step + prec1.item() / n) / (step + 1)
+        avgTop5 = (avgTop5 * step + prec5.item() / n) / (step + 1)
 
-    return avgTop1, avgTop5
+    return avgLoss, avgTop1, avgTop5
 
 if __name__ == "__main__":
     main()

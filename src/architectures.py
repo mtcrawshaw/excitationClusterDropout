@@ -20,13 +20,22 @@ class cnn2Network(nn.Module):
         self.fc2 = nn.Linear(2048, 1024)
         self.fc3 = nn.Linear(1024, 10)
 
-    def forward(self, input):
+    def forward(self, input, dropout=None):
+        if dropout is not None:
+            input_dropout = nn.Dropout(p=dropout['input'])
+            conv_dropout = nn.Dropout(p=dropout['conv'])
+            fc_dropout = nn.Dropout(p=dropout['fc'])
+
+            input = input_dropout(input)
+
         # First convolutional layer
         x = self.conv1(input)
         x = F.relu(x)
 
         # First max pooling layer
         x = self.pool1(x)
+        if dropout is not None:
+            x = conv_dropout(x)
 
         # Second convolutional layer
         x = self.conv2(x)
@@ -34,6 +43,8 @@ class cnn2Network(nn.Module):
 
         # Second max pooling layer
         x = self.pool2(x)
+        if dropout is not None:
+            x = conv_dropout(x)
 
         # Third convolutional layer
         x = self.conv3(x)
@@ -41,15 +52,21 @@ class cnn2Network(nn.Module):
 
         # Third max pooling layer
         x = self.pool3(x)
+        if dropout is not None:
+            x = conv_dropout(x)
 
         # First fully connected layer
         x = x.view(-1, 256)
         x = self.fc1(x)
         x = F.relu(x)
+        if dropout is not None:
+            x = fc_dropout(x)
 
         # Second fully connected layer
         x = self.fc2(x)
         x = F.relu(x)
+        if dropout is not None:
+            x = fc_dropout(x)
 
         # Third fully connected layer
         x = self.fc3(x)
